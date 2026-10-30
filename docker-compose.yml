@@ -1,0 +1,110 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: stageside-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-stageside}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stageside}
+      POSTGRES_DB: ${POSTGRES_DB:-stageside}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stageside} -d ${POSTGRES_DB:-stageside}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: stageside-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: stageside-livekit
+    restart: unless-stopped
+    command: --config /etc/livekit.yaml --dev
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "50000-50020:50000-50020/udp"
+    volumes:
+      - ./infra/livekit.yaml:/etc/livekit.yaml
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7880/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    container_name: stageside-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://stageside:stageside@postgres:5432/stageside
+      - REDIS_URL=redis://redis:6379/0
+      - LIVEKIT_URL=ws://livekit:7880
+      - LIVEKIT_API_KEY=devkey
+      - LIVEKIT_API_SECRET=secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      livekit:
+        condition: service_healthy
+
+  moderation:
+    build:
+      context: .
+      dockerfile: services/moderation/Dockerfile
+    container_name: stageside-sentinel
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - INFERENCE_DEVICE=cpu
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  media-gateway:
+    build:
+      context: .
+      dockerfile: services/media-gateway/Dockerfile
+    container_name: stageside-media-gateway
+    restart: unless-stopped
+    ports:
+      - "1935:1935"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - MODERATION_SERVICE_URL=http://moderation:8001
+      - LIVEKIT_URL=ws://livekit:7880
+    depends_on:
+      redis:
+        condition: service_healthy
+      moderation:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  redis_data:

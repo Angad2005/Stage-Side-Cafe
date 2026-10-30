@@ -1,0 +1,11 @@
+{
+  "name": "@stageside/contracts",
+  "version": "0.1.0",
+  "description": "Shared TypeScript contracts, events, and API interfaces for StageSide Cafe",
+  "main": "types/index.ts",
+  "types": "types/index.ts",
+  "exports": {
+    "./events": "./events/index.ts",
+    "./types": "./types/index.ts"
+  }
+}

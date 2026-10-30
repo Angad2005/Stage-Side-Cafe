@@ -1,0 +1,11 @@
+port: 7880
+bind_addresses:
+  - ""
+rtc:
+  port_range_start: 50000
+  port_range_end: 50020
+  use_external_ip: false
+keys:
+  devkey: secret
+logging:
+  level: info

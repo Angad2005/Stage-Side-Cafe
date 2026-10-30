@@ -1,0 +1,63 @@
+# Node / Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+.npm
+.vite
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+ENV/
+
+# Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Databases & Media
+*.sqlite3
+*.db
+*.mp4
+*.flv
+recordings/
+models/*.onnx
+models/*.pt
+
+# MPEG-TS segments (not TypeScript — .ts extension collision)
+*.mts
+segments/
+
+# OS / Editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
