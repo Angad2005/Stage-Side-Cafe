@@ -1,15 +1,21 @@
 import React, { useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { Shield, Radio, Activity } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Shield, Radio, Activity, LogOut } from 'lucide-react'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { useAuthStore } from '../../stores/authStore'
 import { useStreamStore } from '../../stores/streamStore'
 
 export function Header() {
-  const { user, token, fetchCurrentUser } = useAuthStore()
+  const { user, token, fetchCurrentUser, logout } = useAuthStore()
   const { currentStream, emergencyLocked } = useStreamStore()
   const location = useLocation()
+  const navigate = useNavigate()
+
+  const handleSignOut = () => {
+    logout()
+    navigate('/login', { replace: true })
+  }
 
   useEffect(() => {
     if (token && !user) void fetchCurrentUser()
@@ -60,16 +66,30 @@ export function Header() {
         </Link>
 
         {user ? (
-          <div className="flex items-center gap-2 pl-2 border-l border-[#242436]">
-            <img
-              src={user.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg?seed=streamer'}
-              alt=""
-              className="w-8 h-8 rounded-full border border-[#9146FF]/50"
-            />
-            <div className="hidden sm:block text-left">
-              <span className="text-xs font-bold text-white block leading-tight">{user.displayName}</span>
-              <span className="text-[10px] text-[#a970ff] uppercase font-mono">{user.role}</span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 pl-2 border-l border-[#242436]">
+              <img
+                src={user.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg?seed=streamer'}
+                alt=""
+                className="w-8 h-8 rounded-full border border-[#9146FF]/50"
+              />
+              <div className="hidden sm:block text-left">
+                <span className="text-xs font-bold text-white block leading-tight">{user.displayName}</span>
+                <span className="text-[10px] text-[#a970ff] uppercase font-mono">{user.role}</span>
+              </div>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-[#3a2d47] text-[#d7c4e9] hover:bg-[#21192a] hover:text-white"
+              onClick={handleSignOut}
+              aria-label="Sign out of your Twitch account"
+              title="Sign out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Sign out</span>
+            </Button>
           </div>
         ) : (
           <Link to="/login">
