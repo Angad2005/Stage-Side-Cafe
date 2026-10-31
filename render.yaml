@@ -3,7 +3,7 @@ services:
     name: stageside-cafe-demo
     runtime: docker
     plan: free
-    dockerfilePath: ./services/api/Dockerfile.demo
+    dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /health
     envVars:
