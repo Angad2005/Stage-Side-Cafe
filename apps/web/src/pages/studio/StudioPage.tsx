@@ -17,6 +17,7 @@ import { SentinelStatusPanel } from '../../components/sentinel/SentinelStatusPan
 import { PolicyEditor } from '../../components/sentinel/PolicyEditor'
 import { IncidentHistory } from '../../components/sentinel/IncidentHistory'
 import { EmergencyControls } from '../../components/sentinel/EmergencyControls'
+import { TwitchConnectionCard } from '../../components/dashboard/TwitchConnectionCard'
 import { ModerationEvent } from '../../types'
 
 const MOCK_INCIDENTS: ModerationEvent[] = [
@@ -79,6 +80,7 @@ export function StudioPage() {
       </div>
 
       {/* Prominent Emergency Controls Bar */}
+      <TwitchConnectionCard />
       <EmergencyControls streamId="stageside_stream_001" />
 
       {/* Studio Navigation Tabs */}

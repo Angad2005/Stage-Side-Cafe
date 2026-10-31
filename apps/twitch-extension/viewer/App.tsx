@@ -102,16 +102,22 @@ function CameraButton({
 export default function ViewerPanel() {
   const [auth, setAuth] = useState<TwitchAuth | null>(null)
   const [_context, setContext] = useState<TwitchContext | null>(null)
-  const [cameras, setCameras] = useState<CameraInfo[]>([])
-  const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null)
+  const [cameras, setCameras] = useState<CameraInfo[]>([
+    { id: 'cam_host', label: 'Host POV (A-Cam)', status: 'safe', isPrimary: true },
+    { id: 'cam_guest', label: 'Guest POV (B-Cam)', status: 'safe', isPrimary: false },
+    { id: 'cam_gameplay', label: 'Gameplay POV', status: 'safe', isPrimary: false },
+  ])
+  const [selectedCameraId, setSelectedCameraId] = useState<string | null>('cam_host')
   const [sentinelActive, setSentinelActive] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [notification, setNotification] = useState<string | null>(null)
+  const [isStandaloneDemo, setIsStandaloneDemo] = useState(false)
 
   // ── Twitch Extension lifecycle ──────────────────────────────────
   useEffect(() => {
     if (!window.Twitch?.ext) {
-      setError('Twitch Extension Helper not loaded')
+      // Standalone browser preview mode for demos
+      setIsStandaloneDemo(true)
       return
     }
 
@@ -244,9 +250,8 @@ export default function ViewerPanel() {
   // ── Select camera via StageSide backend ─────────────────────────
   const selectCamera = useCallback(
     async (cameraId: string) => {
-      if (!auth) return
-
       setSelectedCameraId(cameraId)
+      if (!auth) return
 
       try {
         const backendUrl =
@@ -300,6 +305,11 @@ export default function ViewerPanel() {
         <div className="flex items-center gap-2">
           <Shield className="w-4 h-4 text-primary" />
           <span className="font-bold text-sm">StageSide</span>
+          {isStandaloneDemo && (
+            <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded border border-primary/30">
+              Demo Preview
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <span

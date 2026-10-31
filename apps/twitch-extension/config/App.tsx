@@ -43,7 +43,11 @@ const DEFAULT_POLICIES: PolicyConfig[] = [
 
 export default function ConfigPanel() {
   const [auth, setAuth] = useState<TwitchAuth | null>(null)
-  const [cameras, setCameras] = useState<CameraConfig[]>([])
+  const [cameras, setCameras] = useState<CameraConfig[]>([
+    { id: 'cam_1', name: 'camera_host', label: 'Host POV (A-Cam)', sourceId: 'obs_host', isPrimary: true, sortOrder: 0 },
+    { id: 'cam_2', name: 'camera_guest', label: 'Guest POV (B-Cam)', sourceId: 'obs_guest', isPrimary: false, sortOrder: 1 },
+    { id: 'cam_3', name: 'camera_gameplay', label: 'Gameplay POV', sourceId: 'obs_gameplay', isPrimary: false, sortOrder: 2 },
+  ])
   const [policies, setPolicies] = useState<PolicyConfig[]>(DEFAULT_POLICIES)
   const [activeTab, setActiveTab] = useState<'cameras' | 'sentinel'>('cameras')
   const [saving, setSaving] = useState(false)
@@ -81,8 +85,15 @@ export default function ConfigPanel() {
   }
 
   const saveConfig = useCallback(async () => {
-    if (!auth) return
     setSaving(true)
+    if (!auth) {
+      setTimeout(() => {
+        setSaving(false)
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2500)
+      }, 500)
+      return
+    }
 
     try {
       const backendUrl =

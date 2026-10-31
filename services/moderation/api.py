@@ -1,11 +1,22 @@
 import time
+import os
+import sys
 import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-from .sentinel import ai_sentinel
-from .preprocessing import FrameProcessor
-from .policies import ModerationAction
+
+# Ensure current directory is in sys.path for direct execution
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+try:
+    from .sentinel import ai_sentinel
+    from .preprocessing import FrameProcessor
+    from .policies import ModerationAction
+except (ImportError, ValueError):
+    from sentinel import ai_sentinel
+    from preprocessing import FrameProcessor
+    from policies import ModerationAction
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sentinel.api")

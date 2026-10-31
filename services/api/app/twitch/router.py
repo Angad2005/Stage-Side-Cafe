@@ -1,14 +1,68 @@
-from fastapi import APIRouter, Request, Header, HTTPException, status
+from typing import Any, Dict, List, Optional
+
+import httpx
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
-from app.database import redis_manager
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.auth.dependencies import get_current_user
+from app.database import TwitchAccount, User, get_db, redis_manager
 from .service import twitch_service
 
 router = APIRouter(prefix="/twitch", tags=["twitch"])
 
+
 class ExtensionConfigUpdate(BaseModel):
     cameras: Optional[List[Dict[str, Any]]] = None
     policies: Optional[List[Dict[str, Any]]] = None
+
+
+@router.get("/account")
+async def get_twitch_account_status(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the connected Twitch identity and the channel's current live status."""
+    account = await db.scalar(
+        select(TwitchAccount).where(TwitchAccount.user_id == user.id)
+    )
+    if not account:
+        return {"connected": False, "account": None, "stream": None}
+
+    try:
+        access_token = await twitch_service.get_valid_access_token(account, db)
+        stream = await twitch_service.get_stream(access_token, account.twitch_user_id)
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(error),
+        ) from error
+    except httpx.HTTPError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Twitch could not be reached. Try refreshing the channel status.",
+        ) from error
+
+    return {
+        "connected": True,
+        "account": {
+            "id": account.twitch_user_id,
+            "login": account.twitch_username,
+            "displayName": user.display_name,
+            "profileImageUrl": user.avatar_url,
+            "channelUrl": f"https://www.twitch.tv/{account.twitch_username}",
+        },
+        "stream": {
+            "isLive": stream is not None,
+            "title": stream.get("title") if stream else None,
+            "gameName": stream.get("game_name") if stream else None,
+            "viewerCount": stream.get("viewer_count") if stream else 0,
+            "startedAt": stream.get("started_at") if stream else None,
+            "language": stream.get("language") if stream else None,
+        },
+    }
+
 
 @router.post("/eventsub")
 async def eventsub_webhook(
@@ -34,6 +88,7 @@ async def eventsub_webhook(
 
     return {"status": "ok"}
 
+
 @router.get("/extension/config")
 async def get_extension_config():
     return {
@@ -49,6 +104,7 @@ async def get_extension_config():
             {"category": "dangerous_activity", "enabled": True, "holdThreshold": 0.5, "blockThreshold": 0.8},
         ]
     }
+
 
 @router.put("/extension/config")
 async def update_extension_config(payload: ExtensionConfigUpdate):

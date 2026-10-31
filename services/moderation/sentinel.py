@@ -1,14 +1,29 @@
 import time
+import os
+import sys
 import logging
 from typing import List, Tuple, Dict, Any, Optional
 import numpy as np
-from .config import config
-from .detectors import (
-    BaseDetector, Detection, VisualSafetyDetector, ViolenceDetector,
-    OCRPrivacyDetector, OpenAIModerator, ContextClassifier
-)
-from .policies import PolicyEngine, ModerationDecision, ModerationAction
-from .preprocessing import FrameProcessor
+
+# Ensure current directory is in sys.path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+try:
+    from .config import config
+    from .detectors import (
+        BaseDetector, Detection, VisualSafetyDetector, ViolenceDetector,
+        OCRPrivacyDetector, OpenAIModerator, ContextClassifier
+    )
+    from .policies import PolicyEngine, ModerationDecision, ModerationAction
+    from .preprocessing import FrameProcessor
+except (ImportError, ValueError):
+    from config import config
+    from detectors import (
+        BaseDetector, Detection, VisualSafetyDetector, ViolenceDetector,
+        OCRPrivacyDetector, OpenAIModerator, ContextClassifier
+    )
+    from policies import PolicyEngine, ModerationDecision, ModerationAction
+    from preprocessing import FrameProcessor
 
 logger = logging.getLogger("sentinel.core")
 

@@ -18,8 +18,8 @@ class RedisManager:
         self._memory_fallback: Dict[str, Any] = {}
 
     async def connect(self):
-        if not HAS_REDIS:
-            logger.info("Redis package not installed. Running RedisManager in in-memory fallback mode.")
+        if not HAS_REDIS or self.redis_url.startswith("memory://"):
+            logger.info("Running RedisManager in in-memory fallback mode.")
             return
         try:
             self._client = aioredis.from_url(

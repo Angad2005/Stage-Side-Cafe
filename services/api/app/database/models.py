@@ -1,3 +1,4 @@
+from app.config import settings
 import uuid
 from datetime import datetime
 from typing import Optional, List
@@ -8,12 +9,16 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship
 from .session import Base
 
-try:
-    from pgvector.sqlalchemy import Vector
-    HAS_PGVECTOR = True
-except ImportError:
+if settings.STAGESIDE_DISABLE_PGVECTOR:
     HAS_PGVECTOR = False
     Vector = None
+else:
+    try:
+        from pgvector.sqlalchemy import Vector
+        HAS_PGVECTOR = True
+    except ImportError:
+        HAS_PGVECTOR = False
+        Vector = None
 
 def get_uuid_column():
     return Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))

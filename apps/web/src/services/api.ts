@@ -53,12 +53,20 @@ class ApiService {
   }
 
   // Auth
-  async getTwitchLoginUrl(): Promise<{ login_url: string }> {
+  async getTwitchLoginUrl(): Promise<{ login_url: string; configured: boolean }> {
     return this.request('/auth/twitch/login')
   }
 
   async getMe(): Promise<User> {
     return this.request('/auth/me')
+  }
+
+  async getTwitchAccount(): Promise<{
+    connected: boolean
+    account: { id: string; login: string; displayName: string; profileImageUrl: string | null; channelUrl: string } | null
+    stream: { isLive: boolean; title: string | null; gameName: string | null; viewerCount: number; startedAt: string | null; language: string | null } | null
+  }> {
+    return this.request('/twitch/account')
   }
 
   // Streams

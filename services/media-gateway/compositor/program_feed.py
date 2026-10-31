@@ -2,7 +2,10 @@ import cv2
 import numpy as np
 import logging
 from typing import Dict, List, Optional
-from ..switching.safety_switch import SafetySwitch
+try:
+    from ..switching.safety_switch import SafetySwitch
+except (ImportError, ValueError):
+    from switching.safety_switch import SafetySwitch
 
 logger = logging.getLogger("gateway.compositor")
 

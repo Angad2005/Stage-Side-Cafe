@@ -64,6 +64,11 @@ services:
       - LIVEKIT_URL=ws://livekit:7880
       - LIVEKIT_API_KEY=devkey
       - LIVEKIT_API_SECRET=secret
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID:-}
+      - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET:-}
+      - TWITCH_REDIRECT_URI=${TWITCH_REDIRECT_URI:-http://localhost:8000/api/v1/auth/twitch/callback}
+      - WEB_APP_URL=${WEB_APP_URL:-http://localhost:5173}
+      - APP_SECRET_KEY=${APP_SECRET_KEY:-stageside-super-secure-production-secret-key-32bytes}
     depends_on:
       postgres:
         condition: service_healthy

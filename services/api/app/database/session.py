@@ -10,6 +10,13 @@ try:
     import asyncpg
 except ImportError:
     db_url = "sqlite+aiosqlite:///./test_stageside.db"
+else:
+    # Render provides Postgres URLs with the standard PostgreSQL scheme, while
+    # SQLAlchemy's async engine needs the asyncpg driver named explicitly.
+    if db_url.startswith("postgres://"):
+        db_url = "postgresql+asyncpg://" + db_url[len("postgres://"):]
+    elif db_url.startswith("postgresql://"):
+        db_url = "postgresql+asyncpg://" + db_url[len("postgresql://"):]
 
 engine_kwargs = {"echo": False, "future": True}
 if "sqlite" not in db_url:

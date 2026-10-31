@@ -1,18 +1,32 @@
 import asyncio
+import os
+import sys
 import time
 import signal
-import sys
 import logging
 import httpx
 import numpy as np
 from typing import Dict
-from .config import config
-from .buffering.buffer_manager import BufferManager
-from .switching.safety_switch import SafetySwitch
-from .compositor.program_feed import ProgramFeedCompositor
-from .outputs.livekit_output import LiveKitPublisher
-from .outputs.twitch_output import TwitchOutputStream
-from .ingestion.rtmp_receiver import CameraIngestPipeline
+
+# Ensure directory is in sys.path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+try:
+    from .config import config
+    from .buffering.buffer_manager import BufferManager
+    from .switching.safety_switch import SafetySwitch
+    from .compositor.program_feed import ProgramFeedCompositor
+    from .outputs.livekit_output import LiveKitPublisher
+    from .outputs.twitch_output import TwitchOutputStream
+    from .ingestion.rtmp_receiver import CameraIngestPipeline
+except (ImportError, ValueError):
+    from config import config
+    from buffering.buffer_manager import BufferManager
+    from switching.safety_switch import SafetySwitch
+    from compositor.program_feed import ProgramFeedCompositor
+    from outputs.livekit_output import LiveKitPublisher
+    from outputs.twitch_output import TwitchOutputStream
+    from ingestion.rtmp_receiver import CameraIngestPipeline
 import cv2
 import base64
 

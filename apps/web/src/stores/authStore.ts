@@ -12,34 +12,32 @@ interface AuthState {
   fetchCurrentUser: () => Promise<void>
 }
 
+const storedToken = localStorage.getItem('stageside_token')
+
 export const useAuthStore = create<AuthState>((set) => ({
-  user: {
-    id: 'usr_demo_streamer',
-    username: 'stageside_broadcaster',
-    displayName: 'StageSide Host',
-    role: 'streamer',
-    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=streamer',
-  },
-  token: localStorage.getItem('stageside_token') || 'demo_jwt_token',
-  isAuthenticated: true,
-  isLoading: false,
+  user: null,
+  token: storedToken,
+  isAuthenticated: Boolean(storedToken),
+  isLoading: Boolean(storedToken),
 
   login: (token, user) => {
     api.setToken(token)
-    set({ token, user, isAuthenticated: true })
+    set({ token, user, isAuthenticated: true, isLoading: false })
   },
 
   logout: () => {
     api.setToken(null)
-    set({ token: null, user: null, isAuthenticated: false })
+    set({ token: null, user: null, isAuthenticated: false, isLoading: false })
   },
 
   fetchCurrentUser: async () => {
+    set({ isLoading: true })
     try {
       const me = await api.getMe()
-      set({ user: me, isAuthenticated: true })
+      set({ user: me, isAuthenticated: true, isLoading: false })
     } catch {
-      // Use fallback streamer user
+      api.setToken(null)
+      set({ token: null, user: null, isAuthenticated: false, isLoading: false })
     }
   },
 }))

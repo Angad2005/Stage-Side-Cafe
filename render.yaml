@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: stageside-cafe-demo
+    runtime: docker
+    plan: free
+    dockerfilePath: ./services/api/Dockerfile.demo
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stageside-cafe-db
+          property: connectionString
+      - key: REDIS_URL
+        value: memory://
+      - key: STAGESIDE_DISABLE_PGVECTOR
+        value: "true"
+      - key: WEB_APP_URL
+        fromService:
+          name: stageside-cafe-demo
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: CORS_ORIGINS
+        fromService:
+          name: stageside-cafe-demo
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: TWITCH_CLIENT_ID
+        sync: false
+      - key: TWITCH_CLIENT_SECRET
+        sync: false
+
+databases:
+  - name: stageside-cafe-db
+    plan: free
+    databaseName: stageside_cafe
+    user: stageside
