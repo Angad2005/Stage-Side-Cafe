@@ -138,6 +138,7 @@ async def get_cameras_by_channel(channel_id: str, db: AsyncSession = Depends(get
             {
                 "id": c.id,
                 "label": c.label,
+                "source_id": c.source_id,
                 "moderation_state": c.moderation_state,
                 "is_primary": c.is_primary,
                 "status": c.status

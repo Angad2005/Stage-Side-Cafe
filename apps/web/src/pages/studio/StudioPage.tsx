@@ -18,7 +18,7 @@ import { PolicyEditor } from '../../components/sentinel/PolicyEditor'
 import { IncidentHistory } from '../../components/sentinel/IncidentHistory'
 import { EmergencyControls } from '../../components/sentinel/EmergencyControls'
 import { TwitchConnectionCard } from '../../components/dashboard/TwitchConnectionCard'
-import { ModerationEvent } from '../../types'
+import { Camera as CameraModel, ModerationEvent } from '../../types'
 
 const MOCK_INCIDENTS: ModerationEvent[] = [
   {
@@ -55,13 +55,67 @@ const MOCK_INCIDENTS: ModerationEvent[] = [
   },
 ]
 
+const INCIDENT_STORAGE_KEY = 'stageside_demo_incidents'
+
+function loadIncidents(): ModerationEvent[] {
+  try {
+    const saved = localStorage.getItem(INCIDENT_STORAGE_KEY)
+    if (saved) {
+      const parsed = JSON.parse(saved) as ModerationEvent[]
+      if (Array.isArray(parsed)) return parsed
+    }
+  } catch {
+    // Start with demo incidents if browser storage is unavailable.
+  }
+  return MOCK_INCIDENTS
+}
+
 export function StudioPage() {
-  const [incidents, setIncidents] = useState<ModerationEvent[]>(MOCK_INCIDENTS)
+  const [incidents, setIncidents] = useState<ModerationEvent[]>(loadIncidents)
+
+  const persistIncidents = (updated: ModerationEvent[]) => {
+    setIncidents(updated)
+    try {
+      localStorage.setItem(INCIDENT_STORAGE_KEY, JSON.stringify(updated))
+    } catch {
+      // Incident changes remain active for this visit if storage is unavailable.
+    }
+  }
 
   const handleResolveIncident = (id: string) => {
-    setIncidents(
-      incidents.map((inc) => (inc.id === id ? { ...inc, resolved: true } : inc))
-    )
+    persistIncidents(incidents.map((incident) =>
+      incident.id === id
+        ? { ...incident, resolved: true, resolvedAt: new Date().toISOString() }
+        : incident
+    ))
+  }
+
+  const handleSimulateCut = (camera: CameraModel) => {
+    const now = new Date().toISOString()
+    const incident: ModerationEvent = {
+      id: `demo_inc_${Date.now()}`,
+      cameraId: camera.id,
+      cameraLabel: camera.label,
+      streamId: camera.streamId,
+      category: 'visual_safety',
+      subcategory: 'simulated_test_cut',
+      confidence: 0.99,
+      action: 'blocked',
+      modelId: 'stageside_demo_sentinel',
+      details: { reason: 'Streamer triggered a demo cut to verify the safety workflow.' },
+      frameTimestamp: Date.now() / 1000,
+      resolved: false,
+      createdAt: now,
+    }
+    persistIncidents([incident, ...incidents])
+  }
+
+  const handleRestoreCamera = (cameraId: string) => {
+    persistIncidents(incidents.map((incident) =>
+      incident.cameraId === cameraId && !incident.resolved
+        ? { ...incident, resolved: true, resolvedAt: new Date().toISOString() }
+        : incident
+    ))
   }
 
   return (
@@ -116,14 +170,14 @@ export function StudioPage() {
         <TabsContent value="overview" className="space-y-6">
           <StreamOverview />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <CameraManager />
+            <CameraManager onSimulateCut={handleSimulateCut} onRestore={handleRestoreCamera} />
             <SentinelStatusPanel />
           </div>
         </TabsContent>
 
         {/* Tab 2: Cameras */}
         <TabsContent value="cameras" className="space-y-6">
-          <CameraManager />
+          <CameraManager onSimulateCut={handleSimulateCut} onRestore={handleRestoreCamera} />
         </TabsContent>
 
         {/* Tab 3: AI Sentinel */}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import type { TwitchAuth, CameraStatusMessage } from '../viewer/types'
 import { Shield, Camera, AlertTriangle, Activity, Lock, RefreshCw, Eye } from 'lucide-react'
 
@@ -29,6 +29,7 @@ export default function DashboardView() {
     ],
   })
   const [emergencyLocked, setEmergencyLocked] = useState(false)
+  const cameraStatesBeforeEmergency = useRef<StreamStatus['cameras'] | null>(null)
 
   useEffect(() => {
     if (window.Twitch?.ext) {
@@ -57,7 +58,28 @@ export default function DashboardView() {
   }
 
   const toggleEmergencyLock = () => {
-    setEmergencyLocked(!emergencyLocked)
+    if (!emergencyLocked) {
+      cameraStatesBeforeEmergency.current = status.cameras.map((camera) => ({ ...camera }))
+      setStatus((current) => ({
+        ...current,
+        cameras: current.cameras.map((camera) => ({ ...camera, status: 'unsafe' })),
+      }))
+      setEmergencyLocked(true)
+      return
+    }
+
+    const previousCameras = cameraStatesBeforeEmergency.current
+    if (previousCameras) {
+      setStatus((current) => ({
+        ...current,
+        cameras: current.cameras.map((camera) => {
+          const previous = previousCameras.find((item) => item.id === camera.id)
+          return previous ? { ...camera, status: previous.status } : camera
+        }),
+      }))
+    }
+    cameraStatesBeforeEmergency.current = null
+    setEmergencyLocked(false)
   }
 
   return (
@@ -140,7 +162,8 @@ export default function DashboardView() {
                 {!isSafe ? (
                   <button
                     onClick={() => handleRestore(cam.id)}
-                    className="w-full flex items-center justify-center gap-1 py-1 px-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-semibold transition"
+                    disabled={emergencyLocked}
+                    className="w-full flex items-center justify-center gap-1 py-1 px-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <RefreshCw className="w-3 h-3" />
                     Approve & Restore Feed
@@ -148,7 +171,8 @@ export default function DashboardView() {
                 ) : (
                   <button
                     onClick={() => handleSimulateCut(cam.id)}
-                    className="w-full py-1 px-2 bg-zinc-800 hover:bg-red-900/40 hover:text-red-300 text-zinc-400 rounded text-[11px] border border-zinc-700/50 transition"
+                    disabled={emergencyLocked}
+                    className="w-full py-1 px-2 bg-zinc-800 hover:bg-red-900/40 hover:text-red-300 text-zinc-400 rounded text-[11px] border border-zinc-700/50 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Test Safe Cut
                   </button>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Lock, AlertOctagon, Unlock, ShieldAlert } from 'lucide-react'
+import { Lock, AlertOctagon, Unlock } from 'lucide-react'
 import { Button } from '../ui/button'
 import { useStreamStore } from '../../stores/streamStore'
 import { api } from '../../services/api'
@@ -7,22 +7,36 @@ import { api } from '../../services/api'
 export function EmergencyControls({ streamId }: { streamId: string }) {
   const { emergencyLocked, setEmergencyLock } = useStreamStore()
   const [loading, setLoading] = useState(false)
+  const [feedback, setFeedback] = useState<string | null>(null)
 
   const handlePanicCut = async () => {
     setLoading(true)
+    setFeedback(null)
     try {
       await api.emergencyLock(streamId, 'Streamer Emergency Panic Cut Activated')
       setEmergencyLock(true)
+      setFeedback('Emergency lock is active for this stream.')
     } catch {
-      // Local optimistic cut
       setEmergencyLock(true)
+      setFeedback('Demo lock applied locally; the stream API could not be reached.')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleReleaseLock = () => {
-    setEmergencyLock(false)
+  const handleReleaseLock = async () => {
+    setLoading(true)
+    setFeedback(null)
+    try {
+      await api.emergencyUnlock(streamId)
+      setEmergencyLock(false)
+      setFeedback('Emergency lock released. Previous camera states were restored.')
+    } catch {
+      setEmergencyLock(false)
+      setFeedback('Demo lock released locally; the stream API could not be reached.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -39,8 +53,9 @@ export function EmergencyControls({ streamId }: { streamId: string }) {
             </span>
           </div>
           <p className="text-xs text-[#a68c92] mt-0.5">
-            Immediately cuts every camera feed to safe fallback slate across Twitch and LiveKit.
+            Immediately blocks every camera POV in this StageSide session. Connect the stream API for server-side state changes.
           </p>
+          {feedback && <p role="status" className="mt-1 text-xs text-amber-200">{feedback}</p>}
         </div>
       </div>
 
@@ -48,21 +63,22 @@ export function EmergencyControls({ streamId }: { streamId: string }) {
         {emergencyLocked ? (
           <Button
             variant="safe"
-            onClick={handleReleaseLock}
+            onClick={() => void handleReleaseLock()}
+            disabled={loading}
             className="gap-2 bg-emerald-600 hover:bg-emerald-500"
           >
             <Unlock className="w-4 h-4" />
-            Release Broadcast Lock
+            {loading ? 'Releasing...' : 'Release Broadcast Lock'}
           </Button>
         ) : (
           <Button
             variant="destructive"
-            onClick={handlePanicCut}
+            onClick={() => void handlePanicCut()}
             disabled={loading}
             className="gap-2 bg-red-600 hover:bg-red-500 shadow-lg shadow-red-600/30 text-xs font-bold"
           >
             <Lock className="w-4 h-4" />
-            PANIC: Cut All Cameras
+            {loading ? 'Locking...' : 'PANIC: Cut All Cameras'}
           </Button>
         )}
       </div>

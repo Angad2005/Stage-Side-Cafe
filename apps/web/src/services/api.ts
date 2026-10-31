@@ -143,6 +143,9 @@ class ApiService {
       body: JSON.stringify({ reason }),
     })
   }
+  async emergencyUnlock(streamId: string): Promise<any> {
+    return this.request(`/streams/${streamId}/emergency-unlock`, { method: 'POST' })
+  }
 
   // Communities
   async joinCommunity(streamId: string, interests: string[], preferred_size = 4): Promise<Community> {
@@ -177,14 +180,31 @@ class ApiService {
   }
 
   async getPreferences(): Promise<ViewerPreferences> {
-    return this.request('/viewers/preferences')
+    const response = await this.request<{
+      interests: string[]
+      preferred_community_size: number
+    }>('/viewers/preferences')
+    return {
+      interests: response.interests,
+      preferredCommunitySize: response.preferred_community_size,
+    }
   }
 
-  async updatePreferences(prefs: ViewerPreferences): Promise<ViewerPreferences> {
-    return this.request('/viewers/preferences', {
+  async updatePreferences(preferences: ViewerPreferences): Promise<ViewerPreferences> {
+    const response = await this.request<{
+      interests: string[]
+      preferred_community_size: number
+    }>('/viewers/preferences', {
       method: 'PUT',
-      body: JSON.stringify(prefs),
+      body: JSON.stringify({
+        interests: preferences.interests,
+        preferred_community_size: preferences.preferredCommunitySize,
+      }),
     })
+    return {
+      interests: response.interests,
+      preferredCommunitySize: response.preferred_community_size,
+    }
   }
 
   // Analytics

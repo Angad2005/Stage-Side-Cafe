@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
@@ -139,6 +140,39 @@ async def update_policies(
     await db.commit()
     return {"status": "success", "message": "Policies updated"}
 
+@router.post("/streams/{stream_id}/emergency-unlock")
+async def emergency_broadcast_unlock(
+    stream_id: str,
+    user: User = Depends(require_streamer),
+    db: AsyncSession = Depends(get_db)
+):
+    """Restore each camera's pre-lock state after the streamer releases the master lock."""
+    snapshot_key = f"stream:{stream_id}:emergency-camera-snapshot"
+    snapshot_json = await redis_manager.get(snapshot_key)
+    if not snapshot_json:
+        raise HTTPException(status_code=409, detail="No active emergency lock snapshot was found")
+
+    try:
+        camera_states = json.loads(snapshot_json)
+    except (TypeError, json.JSONDecodeError) as error:
+        raise HTTPException(status_code=500, detail="Emergency lock state could not be restored") from error
+
+    for camera_id, previous_state in camera_states.items():
+        camera = await db.get(Camera, camera_id)
+        if camera and camera.stream_id == stream_id:
+            camera.status = previous_state.get("status", "offline")
+            camera.moderation_state = previous_state.get("moderation_state", "safe")
+
+    await db.commit()
+    await redis_manager.set(snapshot_key, "", ex=1)
+    await redis_manager.publish_event(f"stream:{stream_id}", {
+        "event": "emergency.broadcast_unlocked",
+        "stream_id": stream_id,
+        "unlocked_by": user.id,
+        "timestamp": datetime.utcnow().isoformat()
+    })
+    return {"status": "success", "message": "Emergency broadcast lock released"}
+
 @router.post("/streams/{stream_id}/emergency-lock")
 async def emergency_broadcast_lock(
     stream_id: str,
@@ -149,6 +183,18 @@ async def emergency_broadcast_lock(
     """
     Emergency Panic: Immediately cuts ALL cameras on the stream and replaces with slate.
     """
+    snapshot_key = f"stream:{stream_id}:emergency-camera-snapshot"
+    if not await redis_manager.get(snapshot_key):
+        cameras = await db.execute(select(Camera).where(Camera.stream_id == stream_id))
+        camera_states = {
+            camera.id: {
+                "status": camera.status,
+                "moderation_state": camera.moderation_state,
+            }
+            for camera in cameras.scalars().all()
+        }
+        await redis_manager.set(snapshot_key, json.dumps(camera_states))
+
     await db.execute(
         update(Camera).where(Camera.stream_id == stream_id).values(
             status="blocked",

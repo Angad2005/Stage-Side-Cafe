@@ -45,6 +45,12 @@ export interface TwitchExt {
     callback: (target: string, contentType: string, message: string) => void
   ) => void
 
+  configuration: {
+    broadcaster?: { version: string; content: string }
+    onChanged: (callback: () => void) => void
+    set: (segment: 'broadcaster', version: string, content: string) => void
+  }
+
   /** Extension viewer features */
   viewer: {
     /** The opaque viewer ID */

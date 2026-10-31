@@ -30,6 +30,8 @@ interface PolicyConfig {
   blockThreshold: number
 }
 
+const CONFIG_STORAGE_KEY = 'stageside_extension_configuration'
+
 const DEFAULT_POLICIES: PolicyConfig[] = [
   { category: 'visual_safety', enabled: true, holdThreshold: 0.5, blockThreshold: 0.8 },
   { category: 'violence', enabled: true, holdThreshold: 0.6, blockThreshold: 0.85 },
@@ -52,69 +54,95 @@ export default function ConfigPanel() {
   const [activeTab, setActiveTab] = useState<'cameras' | 'sentinel'>('cameras')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (window.Twitch?.ext) {
-      window.Twitch.ext.onAuthorized((authData) => {
-        setAuth(authData)
-        loadConfig(authData)
-      })
+  const applyConfiguration = (content: string) => {
+    try {
+      const data = JSON.parse(content)
+      if (Array.isArray(data.cameras)) setCameras(data.cameras)
+      if (Array.isArray(data.policies)) setPolicies(data.policies)
+      return true
+    } catch {
+      return false
     }
-  }, [])
+  }
 
   const loadConfig = async (authData: TwitchAuth) => {
+    const broadcasterConfig = window.Twitch?.ext.configuration.broadcaster?.content
+    if (broadcasterConfig && applyConfiguration(broadcasterConfig)) return
+
     try {
-      const backendUrl =
-        import.meta.env.VITE_STAGESIDE_API_URL || 'https://api.stageside.cafe'
-      const res = await fetch(
-        `${backendUrl}/api/v1/twitch/extension/config`,
-        {
-          headers: {
-            Authorization: `Bearer ${authData.token}`,
-          },
-        }
-      )
-      if (res.ok) {
-        const data = await res.json()
-        if (data.cameras) setCameras(data.cameras)
-        if (data.policies) setPolicies(data.policies)
-      }
+      const localConfig = localStorage.getItem(CONFIG_STORAGE_KEY)
+      if (localConfig && applyConfiguration(localConfig)) return
+    } catch {
+      // Continue to the backend defaults when local storage is unavailable.
+    }
+
+    try {
+      const backendUrl = import.meta.env.VITE_STAGESIDE_API_URL || 'https://api.stageside.cafe'
+      const res = await fetch(`${backendUrl}/api/v1/twitch/extension/config`, {
+        headers: { Authorization: `Bearer ${authData.token}` },
+      })
+      if (!res.ok) throw new Error(`Failed to load configuration: ${res.status}`)
+      applyConfiguration(await res.text())
     } catch (err) {
       console.error('[StageSide Config] Failed to load config:', err)
     }
   }
 
-  const saveConfig = useCallback(async () => {
+  useEffect(() => {
+    try {
+      const localConfig = localStorage.getItem(CONFIG_STORAGE_KEY)
+      if (localConfig) applyConfiguration(localConfig)
+    } catch {
+      // Local preview can continue with built-in defaults.
+    }
+
+    if (window.Twitch?.ext) {
+      window.Twitch.ext.onAuthorized((authData) => {
+        setAuth(authData)
+        void loadConfig(authData)
+      })
+    }
+  }, [])
+
+  const saveConfig = useCallback(() => {
     setSaving(true)
-    if (!auth) {
-      setTimeout(() => {
-        setSaving(false)
-        setSaved(true)
-        setTimeout(() => setSaved(false), 2500)
-      }, 500)
-      return
+    setSaved(false)
+    setSaveMessage(null)
+    const content = JSON.stringify({ cameras, policies })
+    let storedLocally = false
+
+    try {
+      localStorage.setItem(CONFIG_STORAGE_KEY, content)
+      storedLocally = true
+    } catch {
+      // Twitch's configuration service can still save this setting.
     }
 
     try {
-      const backendUrl =
-        import.meta.env.VITE_STAGESIDE_API_URL || 'https://api.stageside.cafe'
-      await fetch(`${backendUrl}/api/v1/twitch/extension/config`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${auth.token}`,
-        },
-        body: JSON.stringify({ cameras, policies }),
-      })
+      if (auth && window.Twitch?.ext.configuration) {
+        window.Twitch.ext.configuration.set('broadcaster', '1', content)
+        setSaveMessage('Configuration saved to this Twitch channel.')
+      } else if (storedLocally) {
+        setSaveMessage('Configuration saved in this browser preview.')
+      } else {
+        throw new Error('No configuration storage is available')
+      }
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
       console.error('[StageSide Config] Failed to save config:', err)
+      if (storedLocally) {
+        setSaved(true)
+        setSaveMessage('Saved in this browser, but Twitch channel configuration could not be updated.')
+      } else {
+        setSaveMessage('Configuration could not be saved. Check Twitch authorization and try again.')
+      }
     } finally {
       setSaving(false)
     }
   }, [auth, cameras, policies])
-
   const addCamera = () => {
     const newCamera: CameraConfig = {
       id: `cam_${Date.now()}`,
@@ -128,11 +156,19 @@ export default function ConfigPanel() {
   }
 
   const removeCamera = (id: string) => {
-    setCameras(cameras.filter((c) => c.id !== id))
+    const removedCamera = cameras.find((camera) => camera.id === id)
+    const remaining = cameras.filter((camera) => camera.id !== id)
+    if (removedCamera?.isPrimary && remaining.length > 0) {
+      remaining[0] = { ...remaining[0], isPrimary: true }
+    }
+    setCameras(remaining)
   }
 
   const updateCamera = (id: string, updates: Partial<CameraConfig>) => {
-    setCameras(cameras.map((c) => (c.id === id ? { ...c, ...updates } : c)))
+    setCameras(cameras.map((camera) => {
+      if (camera.id === id) return { ...camera, ...updates }
+      return updates.isPrimary ? { ...camera, isPrimary: false } : camera
+    }))
   }
 
   const updatePolicy = (category: string, updates: Partial<PolicyConfig>) => {

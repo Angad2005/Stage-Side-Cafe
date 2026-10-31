@@ -99,6 +99,22 @@ function CameraButton({
 /*  Main Extension Panel                                               */
 /* ------------------------------------------------------------------ */
 
+function getConfiguredCameras(): Array<{
+  id: string
+  label: string
+  sourceId: string
+  isPrimary: boolean
+}> {
+  try {
+    const content = window.Twitch?.ext.configuration.broadcaster?.content
+    if (!content) return []
+    const data = JSON.parse(content)
+    return Array.isArray(data.cameras) ? data.cameras : []
+  } catch {
+    return []
+  }
+}
+
 export default function ViewerPanel() {
   const [auth, setAuth] = useState<TwitchAuth | null>(null)
   const [_context, setContext] = useState<TwitchContext | null>(null)
@@ -221,7 +237,12 @@ export default function ViewerPanel() {
       if (!res.ok) {
         // Stream may not be active yet
         if (res.status === 404) {
-          setCameras([])
+          setCameras(getConfiguredCameras().map((camera) => ({
+            id: camera.id,
+            label: camera.label,
+            status: 'error',
+            isPrimary: camera.isPrimary,
+          })))
           return
         }
         throw new Error(`Failed to fetch cameras: ${res.status}`)
@@ -230,13 +251,18 @@ export default function ViewerPanel() {
       const data = await res.json()
       setCameras(
         data.cameras.map(
-          (c: { id: string; label: string; moderation_state: string; is_primary: boolean }) => ({
-            id: c.id,
-            label: c.label,
-            status: c.moderation_state as CameraInfo['status'],
-            isPrimary: c.is_primary,
-          })
-        )
+        (camera: { id: string; label: string; source_id: string; moderation_state: string; is_primary: boolean }) => {
+          const configured = getConfiguredCameras().find(
+            (item) => item.sourceId?.toLowerCase() === camera.source_id?.toLowerCase()
+          )
+          return {
+            id: camera.id,
+            label: configured?.label || camera.label,
+            status: camera.moderation_state as CameraInfo['status'],
+            isPrimary: configured?.isPrimary ?? camera.is_primary,
+          }
+        }
+      )
       )
 
       // Select primary camera by default
@@ -286,10 +312,11 @@ export default function ViewerPanel() {
 
   // ── Open full StageSide viewer ──────────────────────────────────
   const openStageSideViewer = () => {
+    const channelId = auth?.channelId || 'stageside_stream_001'
     const viewerUrl =
       import.meta.env.VITE_STAGESIDE_VIEWER_URL || 'https://stageside.cafe'
     window.open(
-      `${viewerUrl}/watch/${auth?.channelId}`,
+      `${viewerUrl}/watch/${encodeURIComponent(channelId)}`,
       '_blank',
       'noopener,noreferrer'
     )

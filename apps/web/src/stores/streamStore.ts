@@ -6,10 +6,12 @@ interface StreamState {
   cameras: Camera[]
   selectedCameraId: string | null
   emergencyLocked: boolean
+  cameraStatesBeforeEmergency: Camera[] | null
   sentinelStatus: 'nominal' | 'alert' | 'error'
 
   setStream: (stream: Stream) => void
   setCameras: (cameras: Camera[]) => void
+  addCamera: (camera: Camera) => void
   selectCamera: (cameraId: string) => void
   updateCameraState: (cameraId: string, updates: Partial<Camera>) => void
   handleCameraBlocked: (cameraId: string, reason?: string) => void
@@ -73,10 +75,12 @@ export const useStreamStore = create<StreamState>((set, get) => ({
   cameras: DEFAULT_CAMERAS,
   selectedCameraId: 'cam_host',
   emergencyLocked: false,
+  cameraStatesBeforeEmergency: null,
   sentinelStatus: 'nominal',
 
   setStream: (stream) => set({ currentStream: stream }),
   setCameras: (cameras) => set({ cameras }),
+  addCamera: (camera) => set((state) => ({ cameras: [...state.cameras, camera] })),
   selectCamera: (cameraId) => set({ selectedCameraId: cameraId }),
 
   updateCameraState: (cameraId, updates) => {
@@ -116,15 +120,23 @@ export const useStreamStore = create<StreamState>((set, get) => ({
   },
 
   setEmergencyLock: (locked) => {
-    set((state) => ({
-      emergencyLocked: locked,
-      cameras: locked
-        ? state.cameras.map((c) => ({
-            ...c,
+    set((state) => {
+      if (locked) {
+        return {
+          emergencyLocked: true,
+          cameraStatesBeforeEmergency: state.cameraStatesBeforeEmergency || state.cameras,
+          cameras: state.cameras.map((camera) => ({
+            ...camera,
             status: CameraStatus.BLOCKED,
             moderationState: ModerationState.UNSAFE,
-          }))
-        : state.cameras,
-    }))
+          })),
+        }
+      }
+      return {
+        emergencyLocked: false,
+        cameras: state.cameraStatesBeforeEmergency || state.cameras,
+        cameraStatesBeforeEmergency: null,
+      }
+    })
   },
 }))
